@@ -2,44 +2,47 @@
 
 import { useState } from "react"
 import { Camera, Users, Shield } from "lucide-react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import FaceCapture from "./components/face-capture"
 import UserManagement from "./components/user-management"
+import "./App.css"
 
 export default function App() {
   const [activeTab, setActiveTab] = useState("capture")
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <Shield className="w-8 h-8 text-blue-600" />
-            <h1 className="text-3xl font-bold text-gray-900">Face Recognition Door Lock</h1>
+    <div className="app-container">
+      <div className="app-content">
+        <div className="app-header">
+          <div className="header-title">
+            <Shield className="header-icon" />
+            <h1>Face Recognition Door Lock</h1>
           </div>
-          <p className="text-gray-600">Secure access control system with face detection</p>
+          <p className="header-subtitle">Secure access control system with face detection</p>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="capture" className="flex items-center gap-2">
-              <Camera className="w-4 h-4" />
+        <div className="tabs-container">
+          <div className="tabs-list">
+            <button
+              className={`tab-button ${activeTab === "capture" ? "active" : ""}`}
+              onClick={() => setActiveTab("capture")}
+            >
+              <Camera className="tab-icon" />
               Face Recognition
-            </TabsTrigger>
-            <TabsTrigger value="users" className="flex items-center gap-2">
-              <Users className="w-4 h-4" />
+            </button>
+            <button
+              className={`tab-button ${activeTab === "users" ? "active" : ""}`}
+              onClick={() => setActiveTab("users")}
+            >
+              <Users className="tab-icon" />
               User Management
-            </TabsTrigger>
-          </TabsList>
+            </button>
+          </div>
 
-          <TabsContent value="capture" className="mt-6">
-            <FaceCapture />
-          </TabsContent>
-
-          <TabsContent value="users" className="mt-6">
-            <UserManagement />
-          </TabsContent>
-        </Tabs>
+          <div className="tab-content">
+            {activeTab === "capture" && <FaceCapture />}
+            {activeTab === "users" && <UserManagement />}
+          </div>
+        </div>
       </div>
     </div>
   )
