@@ -2,6 +2,10 @@
 
 import { useRef, useEffect, useState, useCallback } from "react"
 import { Camera, CheckCircle, XCircle, RotateCcw } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+
 
 export default function FaceCapture() {
   const videoRef = useRef(null)
@@ -10,9 +14,6 @@ export default function FaceCapture() {
   const [capturedImage, setCapturedImage] = useState(null)
   const [detectionResult, setDetectionResult] = useState(null)
   const [isProcessing, setIsProcessing] = useState(false)
-  const [faceDetected, setFaceDetected] = useState(false)
-  const [captureCountdown, setCaptureCountdown] = useState(0)
-  const [autoCapturing, setAutoCapturing] = useState(false)
 
   const startCamera = useCallback(async () => {
     try {
@@ -32,57 +33,12 @@ export default function FaceCapture() {
 
   const stopCamera = useCallback(() => {
     if (videoRef.current?.srcObject) {
-      const tracks = videoRef.current.srcObject.getTracks()
+      const tracks = (videoRef.current.srcObject).getTracks()
       tracks.forEach((track) => track.stop())
       videoRef.current.srcObject = null
       setIsStreaming(false)
     }
   }, [])
-
-  const detectFace = useCallback(async () => {
-    if (!videoRef.current || !canvasRef.current || !isStreaming) return false
-
-    const canvas = canvasRef.current
-    const video = videoRef.current
-    const context = canvas.getContext("2d")
-
-    if (!context) return false
-
-    canvas.width = video.videoWidth
-    canvas.height = video.videoHeight
-    context.drawImage(video, 0, 0)
-
-    const imageData = context.getImageData(0, 0, canvas.width, canvas.height)
-    const data = imageData.data
-
-    // Simple face detection based on skin tone and brightness analysis
-    let skinPixels = 0
-    let brightPixels = 0
-    const totalPixels = data.length / 4
-
-    for (let i = 0; i < data.length; i += 4) {
-      const r = data[i]
-      const g = data[i + 1]
-      const b = data[i + 2]
-      const brightness = (r + g + b) / 3
-
-      // Skin tone detection
-      if (r > 95 && g > 40 && b > 20 && r > g && r > b) {
-        skinPixels++
-      }
-
-      // Brightness analysis
-      if (brightness > 80 && brightness < 200) {
-        brightPixels++
-      }
-    }
-
-    const skinRatio = skinPixels / totalPixels
-    const brightRatio = brightPixels / totalPixels
-
-    // Face detected if we have good skin tone ratio and proper lighting
-    return skinRatio > 0.15 && skinRatio < 0.6 && brightRatio > 0.4
-  }, [isStreaming])
 
   const captureImage = useCallback(() => {
     if (!videoRef.current || !canvasRef.current) return
@@ -99,45 +55,8 @@ export default function FaceCapture() {
       const imageData = canvas.toDataURL("image/jpeg", 0.8)
       setCapturedImage(imageData)
       stopCamera()
-      setAutoCapturing(false)
-      setCaptureCountdown(0)
     }
   }, [stopCamera])
-
-  const handleSmartCapture = useCallback(async () => {
-    if (!isStreaming) return
-
-    setAutoCapturing(true)
-
-    // Check for face detection
-    const hasFace = await detectFace()
-    setFaceDetected(hasFace)
-
-    if (hasFace) {
-      // Start countdown for auto capture
-      setCaptureCountdown(3)
-
-      const countdownInterval = setInterval(() => {
-        setCaptureCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(countdownInterval)
-            // Auto capture after countdown
-            setTimeout(() => {
-              if (isStreaming && !capturedImage) {
-                captureImage()
-              }
-            }, 100)
-            return 0
-          }
-          return prev - 1
-        })
-      }, 1000)
-    } else {
-      // No face detected, show message and stop auto capturing
-      setAutoCapturing(false)
-      alert("No face detected. Please position yourself properly in front of the camera.")
-    }
-  }, [detectFace, capturedImage, isStreaming, captureImage])
 
   const simulateFaceDetection = useCallback(async (imageData) => {
     // Simulate face detection processing
@@ -186,9 +105,6 @@ export default function FaceCapture() {
     setCapturedImage(null)
     setDetectionResult(null)
     setIsProcessing(false)
-    setAutoCapturing(false)
-    setCaptureCountdown(0)
-    setFaceDetected(false)
   }, [])
 
   useEffect(() => {
@@ -204,124 +120,114 @@ export default function FaceCapture() {
   }, [capturedImage, detectionResult, isProcessing, processImage])
 
   return (
-    <div className="face-capture-container">
-      <div className="capture-card">
-        <div className="card-header">
-          <Camera className="card-icon" />
-          <h2>Face Recognition Scanner</h2>
-        </div>
-
-        <div className="card-content">
-          <div className="video-container">
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Camera className="w-5 h-5" />
+            Face Recognition Scanner
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="relative bg-black rounded-lg overflow-hidden aspect-video max-w-md mx-auto">
             {!capturedImage ? (
-              <>
-                <video ref={videoRef} autoPlay playsInline muted className="video-element" />
-
-                {/* Auto-capture indicators */}
-                {isStreaming && autoCapturing && (
-                  <div className="capture-overlay">
-                    <div className="capture-status">
-                      <div className="status-row">
-                        <span>Smart Capture: {faceDetected ? "Face Detected" : "Looking for face..."}</span>
-                        <div className={`status-indicator ${faceDetected ? "detected" : "searching"}`}></div>
-                      </div>
-                      {captureCountdown > 0 && (
-                        <div className="countdown-container">
-                          <div className="countdown-text">Capturing in {captureCountdown}...</div>
-                          <div className="progress-bar">
-                            <div
-                              className="progress-fill"
-                              style={{ width: `${((4 - captureCountdown) / 3) * 100}%` }}
-                            ></div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </>
+              <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
             ) : (
-              <img src={capturedImage || "/placeholder.svg"} alt="Captured face" className="captured-image" />
+              <img
+                src={capturedImage || "/placeholder.svg"}
+                alt="Captured face"
+                className="w-full h-full object-cover"
+              />
             )}
 
             {!isStreaming && !capturedImage && (
-              <div className="camera-placeholder">
-                <Camera className="placeholder-icon" />
-                <p>Camera not active</p>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-white text-center">
+                  <Camera className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm opacity-75">Camera not active</p>
+                </div>
               </div>
             )}
           </div>
 
-          <canvas ref={canvasRef} style={{ display: "none" }} />
+          <canvas ref={canvasRef} className="hidden" />
 
-          <div className="button-container">
+          <div className="flex justify-center gap-3">
             {!isStreaming && !capturedImage && (
-              <button onClick={startCamera} className="btn btn-primary">
-                <Camera className="btn-icon" />
+              <Button onClick={startCamera} className="flex items-center gap-2">
+                <Camera className="w-4 h-4" />
                 Start Camera
-              </button>
+              </Button>
             )}
 
             {isStreaming && !capturedImage && (
               <>
-                <button onClick={handleSmartCapture} className="btn btn-primary" disabled={autoCapturing}>
-                  <Camera className="btn-icon" />
-                  {autoCapturing ? "Capturing..." : "Smart Capture"}
-                </button>
-                <button onClick={stopCamera} className="btn btn-secondary">
+                <Button onClick={captureImage} className="flex items-center gap-2">
+                  <Camera className="w-4 h-4" />
+                  Capture Face
+                </Button>
+                <Button onClick={stopCamera} variant="outline">
                   Stop Camera
-                </button>
+                </Button>
               </>
             )}
 
             {capturedImage && (
-              <button onClick={resetCapture} className="btn btn-secondary">
-                <RotateCcw className="btn-icon" />
+              <Button onClick={resetCapture} variant="outline" className="flex items-center gap-2">
+                <RotateCcw className="w-4 h-4" />
                 Try Again
-              </button>
+              </Button>
             )}
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {isProcessing && (
-        <div className="processing-card">
-          <div className="processing-content">
-            <div className="spinner"></div>
-            <p>Processing face recognition...</p>
-          </div>
-        </div>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Processing face recognition...</p>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {detectionResult && (
-        <div className={`result-card ${detectionResult.success ? "success" : "failure"}`}>
-          <div className="result-content">
-            <div className="result-header">
-              {detectionResult.success ? (
-                <CheckCircle className="result-icon success-icon" />
-              ) : (
-                <XCircle className="result-icon failure-icon" />
-              )}
-              <div className="result-info">
-                <p className="result-title">{detectionResult.success ? "Access Granted" : "Access Denied"}</p>
-                <p className="result-confidence">Confidence: {(detectionResult.confidence * 100).toFixed(1)}%</p>
-                {detectionResult.user && (
-                  <div className="user-info">
-                    <p>
-                      <strong>Welcome:</strong> {detectionResult.user.name}
-                    </p>
-                    <p>
-                      <strong>Employee ID:</strong> {detectionResult.user.employeeId}
-                    </p>
+        <Card>
+          <CardContent className="pt-6">
+            <Alert className={detectionResult.success ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}>
+              <div className="flex items-center gap-2">
+                {detectionResult.success ? (
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                ) : (
+                  <XCircle className="w-5 h-5 text-red-600" />
+                )}
+                <AlertDescription>
+                  <div className="space-y-2">
+                    <p className="font-semibold">{detectionResult.success ? "Access Granted" : "Access Denied"}</p>
+                    <p className="text-sm">Confidence: {(detectionResult.confidence * 100).toFixed(1)}%</p>
+                    {detectionResult.user && (
+                      <div className="text-sm">
+                        <p>
+                          <strong>Welcome:</strong> {detectionResult.user.name}
+                        </p>
+                        <p>
+                          <strong>Employee ID:</strong> {detectionResult.user.employeeId}
+                        </p>
+                      </div>
+                    )}
+                    {!detectionResult.success && (
+                      <p className="text-sm text-red-600">
+                        Face not recognized. Please try again or contact administrator.
+                      </p>
+                    )}
                   </div>
-                )}
-                {!detectionResult.success && (
-                  <p className="error-message">Face not recognized. Please try again or contact administrator.</p>
-                )}
+                </AlertDescription>
               </div>
-            </div>
-          </div>
-        </div>
+            </Alert>
+          </CardContent>
+        </Card>
       )}
     </div>
   )

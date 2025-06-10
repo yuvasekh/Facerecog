@@ -1,7 +1,14 @@
 "use client"
 
+import  React from "react"
 import { useState, useRef, useCallback, useEffect } from "react"
 import { UserPlus, Camera, Save, Trash2, User } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+
 
 export default function UserManagement() {
   const videoRef = useRef(null)
@@ -14,10 +21,6 @@ export default function UserManagement() {
   })
   const [registeredUsers, setRegisteredUsers] = useState([])
   const [showSuccess, setShowSuccess] = useState(false)
-  const [faceDetected, setFaceDetected] = useState(false)
-  const [captureCountdown, setCaptureCountdown] = useState(0)
-  const [autoCapturing, setAutoCapturing] = useState(false)
-  const [isUploading, setIsUploading] = useState(false)
 
   const loadUsers = useCallback(() => {
     const users = JSON.parse(localStorage.getItem("registeredUsers") || "[]")
@@ -46,57 +49,12 @@ export default function UserManagement() {
 
   const stopCamera = useCallback(() => {
     if (videoRef.current?.srcObject) {
-      const tracks = videoRef.current.srcObject.getTracks()
+      const tracks = (videoRef.current.srcObject).getTracks()
       tracks.forEach((track) => track.stop())
       videoRef.current.srcObject = null
       setIsStreaming(false)
     }
   }, [])
-
-  const detectFace = useCallback(async () => {
-    if (!videoRef.current || !canvasRef.current || !isStreaming) return false
-
-    const canvas = canvasRef.current
-    const video = videoRef.current
-    const context = canvas.getContext("2d")
-
-    if (!context) return false
-
-    canvas.width = video.videoWidth
-    canvas.height = video.videoHeight
-    context.drawImage(video, 0, 0)
-
-    const imageData = context.getImageData(0, 0, canvas.width, canvas.height)
-    const data = imageData.data
-
-    // Simple face detection based on skin tone and brightness analysis
-    let skinPixels = 0
-    let brightPixels = 0
-    const totalPixels = data.length / 4
-
-    for (let i = 0; i < data.length; i += 4) {
-      const r = data[i]
-      const g = data[i + 1]
-      const b = data[i + 2]
-      const brightness = (r + g + b) / 3
-
-      // Skin tone detection
-      if (r > 95 && g > 40 && b > 20 && r > g && r > b) {
-        skinPixels++
-      }
-
-      // Brightness analysis
-      if (brightness > 80 && brightness < 200) {
-        brightPixels++
-      }
-    }
-
-    const skinRatio = skinPixels / totalPixels
-    const brightRatio = brightPixels / totalPixels
-
-    // Face detected if we have good skin tone ratio and proper lighting
-    return skinRatio > 0.15 && skinRatio < 0.6 && brightRatio > 0.4
-  }, [isStreaming])
 
   const captureImage = useCallback(() => {
     if (!videoRef.current || !canvasRef.current) return
@@ -113,45 +71,8 @@ export default function UserManagement() {
       const imageData = canvas.toDataURL("image/jpeg", 0.8)
       setCapturedImage(imageData)
       stopCamera()
-      setAutoCapturing(false)
-      setCaptureCountdown(0)
     }
   }, [stopCamera])
-
-  const handleSmartCapture = useCallback(async () => {
-    if (!isStreaming) return
-
-    setAutoCapturing(true)
-
-    // Check for face detection
-    const hasFace = await detectFace()
-    setFaceDetected(hasFace)
-
-    if (hasFace) {
-      // Start countdown for auto capture
-      setCaptureCountdown(3)
-
-      const countdownInterval = setInterval(() => {
-        setCaptureCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(countdownInterval)
-            // Auto capture after countdown
-            setTimeout(() => {
-              if (isStreaming && !capturedImage) {
-                captureImage()
-              }
-            }, 100)
-            return 0
-          }
-          return prev - 1
-        })
-      }, 1000)
-    } else {
-      // No face detected, show message and stop auto capturing
-      setAutoCapturing(false)
-      alert("No face detected. Please position yourself properly in front of the camera.")
-    }
-  }, [detectFace, capturedImage, isStreaming, captureImage])
 
   const handleInputChange = useCallback((e) => {
     const { name, value } = e.target
@@ -161,57 +82,30 @@ export default function UserManagement() {
     }))
   }, [])
 
-  const saveUser = useCallback(async () => {
+  const saveUser = useCallback(() => {
+    console.log(formData)
     if (!formData.name.trim() || !formData.employeeId.trim() || !capturedImage) {
       alert("Please fill all fields and capture an image")
       return
     }
 
-    setIsUploading(true)
-
-    try {
-      // Prepare user data for API
-      const userData = {
-        name: formData.name.trim(),
-        employeeId: formData.employeeId.trim(),
-        imageData: capturedImage,
-        registeredAt: new Date().toISOString(),
-      }
-
-      // Simulate API call
-      console.log("Sending user data to server:", {
-        name: userData.name,
-        employeeId: userData.employeeId,
-        imageSize: userData.imageData.length,
-        registeredAt: userData.registeredAt,
-      })
-
-      // Simulate processing time
-      await new Promise((resolve) => setTimeout(resolve, 1500))
-
-      // Save locally
-      const newUser = {
-        id: Date.now().toString(),
-        ...userData,
-      }
-
-      const updatedUsers = [...registeredUsers, newUser]
-      localStorage.setItem("registeredUsers", JSON.stringify(updatedUsers))
-      setRegisteredUsers(updatedUsers)
-
-      // Reset form
-      setFormData({ name: "", employeeId: "" })
-      setCapturedImage(null)
-      setShowSuccess(true)
-      setTimeout(() => setShowSuccess(false), 3000)
-
-      console.log("User saved successfully!")
-    } catch (error) {
-      console.error("Error saving user:", error)
-      alert("Failed to save user. Please try again.")
-    } finally {
-      setIsUploading(false)
+    const newUser = {
+      id: Date.now().toString(),
+      name: formData.name.trim(),
+      employeeId: formData.employeeId.trim(),
+      imageData: capturedImage,
+      registeredAt: new Date().toISOString(),
     }
+
+    const updatedUsers = [...registeredUsers, newUser]
+    localStorage.setItem("registeredUsers", JSON.stringify(updatedUsers))
+    setRegisteredUsers(updatedUsers)
+
+    // Reset form
+    setFormData({ name: "", employeeId: "" })
+    setCapturedImage(null)
+    setShowSuccess(true)
+    setTimeout(() => setShowSuccess(false), 3000)
   }, [formData, capturedImage, registeredUsers])
 
   const deleteUser = useCallback(
@@ -226,9 +120,6 @@ export default function UserManagement() {
   const resetForm = useCallback(() => {
     setFormData({ name: "", employeeId: "" })
     setCapturedImage(null)
-    setAutoCapturing(false)
-    setCaptureCountdown(0)
-    setFaceDetected(false)
     stopCamera()
   }, [stopCamera])
 
@@ -239,163 +130,148 @@ export default function UserManagement() {
   }, [stopCamera])
 
   return (
-    <div className="user-management-container">
-      {showSuccess && <div className="success-alert">User registered successfully!</div>}
+    <div className="space-y-6">
+      {showSuccess && (
+        <Alert className="border-green-200 bg-green-50">
+          <AlertDescription className="text-green-800">User registered successfully!</AlertDescription>
+        </Alert>
+      )}
 
-      <div className="register-card">
-        <div className="card-header">
-          <UserPlus className="card-icon" />
-          <h2>Register New User</h2>
-        </div>
-
-        <div className="card-content">
-          <div className="form-grid">
-            <div className="form-group">
-              <label htmlFor="name">Full Name</label>
-              <input
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <UserPlus className="w-5 h-5" />
+            Register New User
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Full Name</Label>
+              <Input
                 id="name"
                 name="name"
-                type="text"
                 value={formData.name}
                 onChange={handleInputChange}
                 placeholder="Enter full name"
-                className="form-input"
               />
             </div>
-            <div className="form-group">
-              <label htmlFor="employeeId">Employee ID</label>
-              <input
+            <div className="space-y-2">
+              <Label htmlFor="employeeId">Employee ID</Label>
+              <Input
                 id="employeeId"
                 name="employeeId"
-                type="text"
                 value={formData.employeeId}
                 onChange={handleInputChange}
                 placeholder="Enter employee ID"
-                className="form-input"
               />
             </div>
           </div>
 
-          <div className="photo-section">
-            <label>Face Photo</label>
-            <div className="video-container">
+          <div className="space-y-4">
+            <Label>Face Photo</Label>
+            <div className="relative bg-black rounded-lg overflow-hidden aspect-video max-w-md mx-auto">
               {!capturedImage ? (
-                <>
-                  <video ref={videoRef} autoPlay playsInline muted className="video-element" />
-
-                  {/* Auto-capture indicators */}
-                  {isStreaming && autoCapturing && (
-                    <div className="capture-overlay">
-                      <div className="capture-status">
-                        <div className="status-row">
-                          <span>Smart Capture: {faceDetected ? "Face Detected" : "Looking for face..."}</span>
-                          <div className={`status-indicator ${faceDetected ? "detected" : "searching"}`}></div>
-                        </div>
-                        {captureCountdown > 0 && (
-                          <div className="countdown-container">
-                            <div className="countdown-text">Capturing in {captureCountdown}...</div>
-                            <div className="progress-bar">
-                              <div
-                                className="progress-fill"
-                                style={{ width: `${((4 - captureCountdown) / 3) * 100}%` }}
-                              ></div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </>
+                <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
               ) : (
-                <img src={capturedImage || "/placeholder.svg"} alt="Captured face" className="captured-image" />
+                <img
+                  src={capturedImage || "/placeholder.svg"}
+                  alt="Captured face"
+                  className="w-full h-full object-cover"
+                />
               )}
 
               {!isStreaming && !capturedImage && (
-                <div className="camera-placeholder">
-                  <Camera className="placeholder-icon" />
-                  <p>No photo captured</p>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-white text-center">
+                    <Camera className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm opacity-75">No photo captured</p>
+                  </div>
                 </div>
               )}
             </div>
 
-            <canvas ref={canvasRef} style={{ display: "none" }} />
+            <canvas ref={canvasRef} className="hidden" />
 
-            <div className="button-container">
+            <div className="flex justify-center gap-3">
               {!isStreaming && !capturedImage && (
-                <button onClick={startCamera} className="btn btn-primary">
-                  <Camera className="btn-icon" />
+                <Button onClick={startCamera} className="flex items-center gap-2">
+                  <Camera className="w-4 h-4" />
                   Start Camera
-                </button>
+                </Button>
               )}
 
               {isStreaming && !capturedImage && (
                 <>
-                  <button onClick={handleSmartCapture} className="btn btn-primary" disabled={autoCapturing}>
-                    <Camera className="btn-icon" />
-                    {autoCapturing ? "Capturing..." : "Smart Capture"}
-                  </button>
-                  <button onClick={stopCamera} className="btn btn-secondary">
+                  <Button onClick={captureImage} className="flex items-center gap-2">
+                    <Camera className="w-4 h-4" />
+                    Capture Photo
+                  </Button>
+                  <Button onClick={stopCamera} variant="outline">
                     Cancel
-                  </button>
+                  </Button>
                 </>
               )}
 
               {capturedImage && (
                 <>
-                  <button onClick={saveUser} disabled={isUploading} className="btn btn-primary">
-                    {isUploading ? (
-                      <>
-                        <div className="btn-spinner"></div>
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="btn-icon" />
-                        Save User
-                      </>
-                    )}
-                  </button>
-                  <button onClick={resetForm} className="btn btn-secondary" disabled={isUploading}>
+                  <Button onClick={saveUser} className="flex items-center gap-2">
+                    <Save className="w-4 h-4" />
+                    Save User
+                  </Button>
+                  <Button onClick={resetForm} variant="outline">
                     Reset
-                  </button>
+                  </Button>
                 </>
               )}
             </div>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
-      <div className="users-card">
-        <div className="card-header">
-          <User className="card-icon" />
-          <h2>Registered Users ({registeredUsers.length})</h2>
-        </div>
-
-        <div className="card-content">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <User className="w-5 h-5" />
+            Registered Users ({registeredUsers.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
           {registeredUsers.length === 0 ? (
-            <div className="empty-state">
-              <User className="empty-icon" />
+            <div className="text-center py-8 text-gray-500">
+              <User className="w-12 h-12 mx-auto mb-4 opacity-30" />
               <p>No users registered yet</p>
             </div>
           ) : (
-            <div className="users-list">
+            <div className="grid gap-4">
               {registeredUsers.map((user) => (
-                <div key={user.id} className="user-item">
-                  <img src={user.imageData || "/placeholder.svg"} alt={user.name} className="user-avatar" />
-                  <div className="user-info">
-                    <h3>{user.name}</h3>
-                    <p className="user-id">ID: {user.employeeId}</p>
-                    <p className="user-date">Registered: {new Date(user.registeredAt).toLocaleDateString()}</p>
+                <div key={user.id} className="flex items-center gap-4 p-4 border rounded-lg">
+                  <img
+                    src={user.imageData || "/placeholder.svg"}
+                    alt={user.name}
+                    className="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
+                  />
+                  <div className="flex-1">
+                    <h3 className="font-semibold">{user.name}</h3>
+                    <p className="text-sm text-gray-600">ID: {user.employeeId}</p>
+                    <p className="text-xs text-gray-400">
+                      Registered: {new Date(user.registeredAt).toLocaleDateString()}
+                    </p>
                   </div>
-                  <button onClick={() => deleteUser(user.id)} className="btn btn-danger btn-small">
-                    <Trash2 className="btn-icon" />
-                  </button>
+                  <Button
+                    onClick={() => deleteUser(user.id)}
+                    variant="outline"
+                    size="sm"
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
                 </div>
               ))}
             </div>
           )}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
